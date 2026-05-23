@@ -496,13 +496,18 @@ def graf2_rho_escenarios(dfs):
             else:
                 rho_vals.append(np.nan)
         offset = (c_idx - max_caj / 2 + 0.5) * ancho
-        color = PALETA["retiro"] if c_idx % 2 == 0 else PALETA["pago"]
+        base_color = PALETA["retiro"] if c_idx % 2 == 0 else PALETA["pago"]
+        # Color por barra: alerta si rho >= 1, sino color base
+        bar_colors = [
+            (PALETA["alerta"] if (not np.isnan(v) and v >= 1.0) else base_color)
+            for v in rho_vals
+        ]
         bars = ax.bar(
             x_base + offset,
             rho_vals,
             width=ancho,
-            alpha=0.85,
-            color=color,
+            alpha=0.95,
+            color=bar_colors,
             edgecolor="white",
             label=f"Cajero {c_idx+1}",
             zorder=3,
@@ -517,6 +522,17 @@ def graf2_rho_escenarios(dfs):
                     va="bottom",
                     fontsize=7,
                 )
+                if v >= 1.0:
+                    ax.text(
+                        b.get_x() + b.get_width() / 2,
+                        b.get_height() + 0.04,
+                        "INESTABLE",
+                        ha="center",
+                        va="bottom",
+                        fontsize=7,
+                        color=PALETA["alerta"],
+                        fontweight="bold",
+                    )
 
     ax.axhline(
         1.0,
@@ -784,6 +800,22 @@ def main():
         print(
             f"  → Mayor espera: Cajero {int(df.loc[imax,'Cajero'])} Wq={df.loc[imax,'Wq_sim']:.3f} min"
         )
+
+    # Resumen: listar cajeros inestables (ρ >= 1) por escenario
+    print("\n" + "=" * 58)
+    print("  RESUMEN — Cajeros inestables por escenario")
+    print("=" * 58)
+    any_inestables = False
+    for nombre, df in dfs.items():
+        inst = df.loc[~df["Estable"]]
+        if not inst.empty:
+            any_inestables = True
+            cajeros = ", ".join(
+                [f"C{int(r['Cajero'])} (ρ={r['ρ']:.3f})" for _, r in inst.iterrows()]
+            )
+            print(f"  {nombre}: {cajeros}")
+    if not any_inestables:
+        print("  No hay cajeros inestables en los escenarios evaluados.")
 
     # ── Puntos ────────────────────────────────────────────────
     punto2(todas["Esc3: 2R + 1P"])
