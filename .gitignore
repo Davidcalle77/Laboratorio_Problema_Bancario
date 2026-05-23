@@ -4,3 +4,5 @@ __pycache__/
 *.pyd
 .vscode/
 *.log
+*.png
+tempCodeRunnerFile.py
