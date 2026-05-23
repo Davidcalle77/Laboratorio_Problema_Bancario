@@ -131,7 +131,8 @@ def simular_cajero(accion, n_cajeros_accion, seed=None):
     lista_servicio = []
 
     while t_actual < T_SIM:
-        # Próxima llegada (exponencial con tasa lambda del cajero)
+        # Próxima llegada (exponencial con tasa lambda del cajero).
+        # Si T ~ Exp(λ), entonces P(T ≤ t) = 1 - exp(-λ t) y la media es 1/λ.
         t_actual += rng.exponential(1.0 / lam)
         if t_actual >= T_SIM:
             break
@@ -140,7 +141,8 @@ def simular_cajero(accion, n_cajeros_accion, seed=None):
         subtipo = rng.choice(TIPOS, p=[PROB[accion][t] for t in TIPOS])
         conteos[subtipo] += 1
 
-        # Tiempo de servicio exponencial del subtipo
+        # Tiempo de servicio exponencial del subtipo.
+        # Aquí la media del servicio es MS[accion][subtipo].
         t_srv = rng.exponential(MS[accion][subtipo])
         lista_servicio.append(t_srv)
 
