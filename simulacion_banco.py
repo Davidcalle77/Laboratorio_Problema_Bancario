@@ -223,9 +223,11 @@ def resumir(replicas):
         datos = [r[c] for r in replicas]
         wq_vals = [d["Wq_sim"] for d in datos]
         w_vals = [d["W_sim"] for d in datos]
+        tsrv_vals = [d["Tsrv_sim"] for d in datos]
         tot_v = [d["total"] for d in datos]
         m_wq, wq_l, wq_h = ic95(wq_vals)
         m_w, w_l, w_h = ic95(w_vals)
+        m_tsrv, tsrv_l, tsrv_h = ic95(tsrv_vals)
         filas.append(
             {
                 "Cajero": c + 1,
@@ -241,6 +243,9 @@ def resumir(replicas):
                 "W_sim": m_w,
                 "W_IC_inf": w_l,
                 "W_IC_sup": w_h,
+                "Tsrv_sim": m_tsrv,
+                "Tsrv_IC_inf": tsrv_l,
+                "Tsrv_IC_sup": tsrv_h,
                 "Wq_analítico": datos[0]["Wq_analitico"],
                 "W_analítico": datos[0]["W_analitico"],
                 "Total_prom": np.mean(tot_v),
@@ -254,6 +259,22 @@ def resumir(replicas):
 # ─────────────────────────────────────────────────────────────
 #  5. PUNTOS SOLICITADOS
 # ─────────────────────────────────────────────────────────────
+
+
+def punto1(dfs):
+    """Cajero con menor y mayor tiempo de atención por escenario."""
+    print("\n" + "=" * 58)
+    print("  PUNTO 1 — Cajero con Menor y Mayor Tiempo de Atención")
+    print("=" * 58)
+    for nombre, df in dfs.items():
+        cajero_mejor = df.loc[df["Tsrv_sim"].idxmin()]
+        cajero_peor = df.loc[df["Tsrv_sim"].idxmax()]
+        print(
+            f"  {nombre}: Mejor = Cajero {int(cajero_mejor['Cajero'])} "
+            f"({cajero_mejor['Acción']}, {cajero_mejor['Tsrv_sim']:.3f} min); "
+            f"Peor = Cajero {int(cajero_peor['Cajero'])} "
+            f"({cajero_peor['Acción']}, {cajero_peor['Tsrv_sim']:.3f} min)"
+        )
 
 
 def punto2(replicas_esc1):
@@ -711,6 +732,76 @@ def graf5_analitico_vs_sim(df_esc3):
     print("grafica5_validacion.png")
 
 
+def graf6_tsrv_escenarios(dfs):
+    """Tiempo promedio de servicio por cajero y escenario."""
+    fig, axes = plt.subplots(1, len(dfs), figsize=(3.5 * len(dfs), 4.5), sharey=True)
+    if len(dfs) == 1:
+        axes = [axes]
+
+    fig.suptitle(
+        "Tiempo Promedio de Servicio (Tsrv_sim) por Cajero y Escenario",
+        fontsize=13,
+        fontweight="bold",
+        y=0.95,
+    )
+
+    for ax, (nombre, df) in zip(axes, dfs.items()):
+        x = np.arange(len(df))
+        best_idx = int(df["Tsrv_sim"].idxmin())
+        worst_idx = int(df["Tsrv_sim"].idxmax())
+        colors = []
+        for i, accion in enumerate(df["Acción"]):
+            if i == best_idx:
+                colors.append("#16A34A")
+            elif i == worst_idx:
+                colors.append("#DC2626")
+            else:
+                colors.append(PALETA[accion.lower()])
+
+        bars = ax.bar(
+            x,
+            df["Tsrv_sim"],
+            color=colors,
+            alpha=0.9,
+            edgecolor="white",
+            linewidth=0.8,
+            zorder=3,
+        )
+        for b, v in zip(bars, df["Tsrv_sim"]):
+            ax.text(
+                b.get_x() + b.get_width() / 2,
+                b.get_height() + 0.02,
+                f"{v:.2f}",
+                ha="center",
+                va="bottom",
+                fontsize=8,
+                fontweight="bold",
+            )
+
+        ax.set_xticks(x)
+        ax.set_xticklabels(
+            [f"C{int(c)}\n({a})" for c, a in zip(df["Cajero"], df["Acción"])],
+            fontsize=9,
+        )
+        ax.set_title(nombre.replace(" ", "\n", 1), fontsize=9, pad=6)
+        ax.set_ylabel("Tsrv_sim (min)", fontsize=10)
+        ax.yaxis.grid(True, ls="--", alpha=0.4, zorder=0)
+        ax.set_axisbelow(True)
+        patch_best = mpatches.Patch(color="#16A34A", label="Mejor cajero")
+        patch_worst = mpatches.Patch(color="#DC2626", label="Peor cajero")
+        patch_retiro = mpatches.Patch(color=PALETA["retiro"], label="Retiro")
+        patch_pago = mpatches.Patch(color=PALETA["pago"], label="Pago")
+        ax.legend(
+            handles=[patch_best, patch_worst, patch_retiro, patch_pago],
+            fontsize=7,
+            loc="upper right",
+        )
+
+    plt.tight_layout()
+    plt.show()
+    print("grafica6_tsrv.png")
+
+
 def graf_info_sistema():
     """Figura separada con Datos del Sistema y Probabilidades."""
     fig, ax = plt.subplots(figsize=(7, 3.5))
@@ -788,6 +879,7 @@ def main():
             "μ caj (c/min)",
             "Wq_sim",
             "W_sim",
+            "Tsrv_sim",
             "Total_prom",
             "Estable",
         ]
@@ -818,6 +910,7 @@ def main():
         print("  No hay cajeros inestables en los escenarios evaluados.")
 
     # ── Puntos ────────────────────────────────────────────────
+    punto1(dfs)
     punto2(todas["Esc3: 2R + 1P"])
     punto3(todas["Esc3: 2R + 1P"])
     punto4(dfs, umbral=5.0)
@@ -828,6 +921,7 @@ def main():
     graf_info_sistema()
     graf1_wq_escenarios(dfs)
     graf2_rho_escenarios(dfs)
+    graf6_tsrv_escenarios(dfs)
     graf3_distribucion_subtipos(todas["Esc3: 2R + 1P"], configs["Esc3: 2R + 1P"])
     graf4_totales_replicas(todas)
     graf5_analitico_vs_sim(dfs["Esc3: 2R + 1P"])
